@@ -37,7 +37,7 @@ model.compile(loss='binary_crossentropy',
               metrics=['accuracy'])
 
 # Przetwarzanie pliku MP4
-video_file = 'example.mp4'
+video_file = 'squat_data/*.mp4'
 cap = cv2.VideoCapture(video_file)
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 for _ in range(frame_count):
@@ -49,7 +49,7 @@ for _ in range(frame_count):
     # Działania na predykcji (np. wyświetlenie, zapisanie itp.)
 
 # Przetwarzanie pliku GIF
-gif_file = 'example.gif'
+gif_file = 'squat_data/*.gif'
 gif_frames = cv2.VideoCapture(gif_file)
 while True:
     ret, frame = gif_frames.read()

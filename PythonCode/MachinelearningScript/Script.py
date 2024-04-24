@@ -4,7 +4,7 @@ from keras.preprocessing.image import img_to_array
 import numpy as np
 
 # Wczytanie wytrenowanego modelu
-model = load_model("trained_model.keras")  # Upewnij się, że plik trained_model.h5 znajduje się w tym samym katalogu co ten skrypt
+model = load_model("trained_model.keras")  # Upewnij się, że plik trained_model.keras znajduje się w tym samym katalogu co ten skrypt
 
 # Definicja funkcji do przetwarzania klatki obrazu
 def process_frame(frame):
