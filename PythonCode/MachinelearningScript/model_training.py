@@ -1,69 +1,69 @@
 import os
-import cv2
+import yaml
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import numpy as np
-from keras.models import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, Input
-from keras.models import Model
-from keras.preprocessing.image import img_to_array
 
-# Definicja szerokości i wysokości obrazu
-img_width, img_height = 224, 224
 
-# Funkcja do przetwarzania klatki obrazu
-def process_frame(frame):
-    frame = cv2.resize(frame, (img_width, img_height))
-    frame = img_to_array(frame)
-    frame = np.expand_dims(frame, axis=0)
-    return frame
+def load_yaml_data(folder_path):
+    images = []
+    labels = []
 
-# Tworzenie modelu
-input_layer = Input(shape=(img_width, img_height, 3))
-x = Conv2D(32, (3, 3), activation='relu')(input_layer)
-x = MaxPooling2D((2, 2))(x)
-x = Conv2D(64, (3, 3), activation='relu')(x)
-x = MaxPooling2D((2, 2))(x)
-x = Conv2D(128, (3, 3), activation='relu')(x)
-x = MaxPooling2D((2, 2))(x)
-x = Flatten()(x)
-x = Dense(128, activation='relu')(x)
-x = Dropout(0.5)(x)
-output_layer = Dense(1, activation='sigmoid')(x)
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.yaml'):  # Zakładamy, że dane są w plikach z rozszerzeniem .yaml
+            yaml_path = os.path.join(folder_path, filename)
 
-model = Model(inputs=input_layer, outputs=output_layer)
+            # Wczytaj dane YAML
+            with open(yaml_path, 'r') as file:
+                data = yaml.safe_load(file)
 
-# Kompilacja modelu
-model.compile(loss='binary_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
+                # Sprawdź, czy dane zawierają klucz "image" i "label"
+                if 'image' in data and 'label' in data:
+                    # Wczytaj obraz z pliku lub z adresu URL
+                    # Tutaj dodaj kod odpowiedzialny za wczytanie obrazu
+                    # Zakładamy, że obrazy są podane jako ścieżki do plików
+                    image_path = data['image']
+                    image = load_img(image_path, target_size=(IMAGE_WIDTH, IMAGE_HEIGHT))
+                    image_array = img_to_array(image)
+                    images.append(image_array)
 
-# Przetwarzanie pliku MP4
-video_file = 'squat_data/*.mp4'
-cap = cv2.VideoCapture(video_file)
-frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-for _ in range(frame_count):
-    ret, frame = cap.read()
-    if not ret:
-        break
-    processed_frame = process_frame(frame)
-    prediction = model.predict(processed_frame)
-    # Działania na predykcji (np. wyświetlenie, zapisanie itp.)
+                    # Wczytaj etykietę
+                    label = data['label']
+                    labels.append(label)
 
-# Przetwarzanie pliku GIF
-gif_file = 'squat_data/*.gif'
-gif_frames = cv2.VideoCapture(gif_file)
-while True:
-    ret, frame = gif_frames.read()
-    if not ret:
-        break
-    processed_frame = process_frame(frame)
-    prediction = model.predict(processed_frame)
-    # Działania na predykcji (np. wyświetlenie, zapisanie itp.)
+    return np.array(images), np.array(labels)
 
-# Zakończenie odtwarzania plików
-cap.release()
-gif_frames.release()
-cv2.destroyAllWindows()
 
-model.save("trained_model.keras")
+def load_yolov8_data_from_folders(images_folder, labels_folder):
+    images = []
+    labels = []
 
-print("Model został pomyślnie zapisany do pliku trained_model.keras")
+    # Przechodzimy przez wszystkie pliki w folderze obrazów
+    for filename in os.listdir(images_folder):
+        if filename.endswith('.jpg'):  # Zakładamy, że obrazy mają rozszerzenie .jpg
+            image_path = os.path.join(images_folder, filename)
+            label_path = os.path.join(labels_folder, filename.split('.')[0] + '.txt')
+
+            # Sprawdzamy, czy istnieje plik tekstowy z etykietami dla obrazu
+            if os.path.exists(label_path):
+                # Wczytujemy obraz
+                image = load_img(image_path, target_size=(
+                IMAGE_WIDTH, IMAGE_HEIGHT))  # Zaimportuj funkcję load_img z keras.preprocessing.image
+                image_array = img_to_array(image)
+                images.append(image_array)
+
+                # Wczytujemy etykiety z pliku tekstowego
+                with open(label_path, 'r') as file:
+                    lines = file.readlines()
+                    for line in lines:
+                        data = line.split()
+                        class_index = int(data[0])
+                        x_center = float(data[1])
+                        y_center = float(data[2])
+                        width = float(data[3])
+                        height = float(data[4])
+
+                        # Tutaj możesz dodać dodatkowe przetwarzanie danych, jeśli jest to konieczne
+
+                        labels.append([class_index, x_center, y_center, width, height])
+
+    return np.array(images), np.array(labels)
