@@ -1,5 +1,6 @@
 import cv2
 from mediapipe.python.solutions import pose
+import mediapipe
 
 # Inicjalizacja modelu MediaPipe Pose
 pose_detector = pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
@@ -15,7 +16,7 @@ def check_squat(previous_keypoints, current_keypoints):
         curr_x, curr_y, _, _ = curr_point
 
         # Jeśli którykolwiek punkt kluczowy zmienił swoje położenie o więcej niż 0.2, zwróć True
-        if abs(curr_x - prev_x) > 0.3 or abs(curr_y - prev_y) > 0.3:
+        if abs(curr_x - prev_x) > 0.2 or abs(curr_y - prev_y) > 0.2:
             return True
 
     return False
@@ -36,7 +37,7 @@ if results.pose_landmarks is not None:
 else:
     print("Nie wykryto postawy na pierwszej klatce.")
     exit()
-
+mp_drawing = mediapipe.solutions.drawing_utils
 while True:
     # Wczytaj kolejną klatkę
     ret, frame = cap.read()
@@ -56,6 +57,9 @@ while True:
 
         # Zaktualizuj punkty kluczowe poprzedniej klatki
         previous_keypoints = current_keypoints
+
+        # Narysuj sylwetkę postaci oraz punkty charakterystyczne
+        mp_drawing.draw_landmarks(frame, results.pose_landmarks, pose.POSE_CONNECTIONS)
 
     # Wyświetl klatkę z zaznaczonymi punktami kluczowymi (opcjonalnie)
     cv2.imshow('Frame', frame)
