@@ -2,55 +2,69 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-# Wczytanie wytrenowanego modelu
-model = tf.keras.models.load_model('trained_model.keras')
-IMAGE_WIDTH = 224
-IMAGE_HEIGHT = 224
-# Definicja klas
-classes = ['1', '2', '3', '4', '5']  # Zastąp nazwami swoimi klasami
+from mediapipe.python.solutions import pose
 
-# Funkcja do analizowania obrazu z kamery
-# Funkcja do analizowania obrazu z kamery
-def analyze_camera_image():
-    # Inicjalizacja kamery
-    cap = cv2.VideoCapture(0)
+# Inicjalizacja modelu MediaPipe do detekcji postury
+pose_detector = pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-    while True:
-        # Wczytanie obrazu z kamery
-        ret, frame = cap.read()
+# Wczytanie trenowanego modelu
+model = tf.keras.models.load_model('best_model.keras')  # Załóżmy, że najlepszy model został zapisany jako 'best_model.h5'
 
-        # Konwersja obrazu do formatu RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+# Funkcja do analizy postury i klasyfikacji
+def analyze_posture_and_classify(frame):
+    # Konwersja kolorów BGR do RGB (MediaPipe wymaga obrazów w formacie RGB)
+    image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Przygotowanie obrazu do przekazania do modelu
-        resized_frame = cv2.resize(rgb_frame, (IMAGE_WIDTH, IMAGE_HEIGHT))
-        input_image = np.expand_dims(resized_frame, axis=0)
+    # Detekcja postury za pomocą MediaPipe
+    results = pose_detector.process(image_rgb)
 
-        # Predykcja klas na podstawie obrazu
-        predictions = model.predict(input_image)
+    # Jeśli postura zostanie wykryta
+    if results.pose_landmarks is not None:
+        # Pobierz punkty kluczowe postury
+        keypoints = results.pose_landmarks.landmark
 
-        # Znalezienie klasy z najwyższym prawdopodobieństwem
-        predicted_class_index = np.argmax(predictions)
+        # Przekształć punkty kluczowe postury na wektor cech
+        features = np.array([(keypoint.x, keypoint.y, keypoint.z, keypoint.visibility) for keypoint in keypoints]).flatten()
 
-        # Ograniczenie wartości etykiet do zakresu [0, 4]
-        predicted_class_index = np.clip(predicted_class_index, 0, 4)
+        # Przekształć wektor cech na wejście dla modelu
+        input_data = np.expand_dims(features, axis=0)
 
-        predicted_class = classes[predicted_class_index]
+        # Skalowanie obrazu do rozmiaru oczekiwanego przez model (224x224)
+        frame_resized = cv2.resize(frame, (224, 224))
 
-        # Wyświetlenie wyniku na obrazie
-        cv2.putText(frame, predicted_class, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        # Przewidywanie klasy za pomocą modelu
+        prediction = model.predict(frame_resized[np.newaxis, ...])
 
-        # Wyświetlenie obrazu z kamery
-        cv2.imshow('Camera', frame)
+        # Wizualizacja punktów kluczowych postury na klatce
+        for keypoint in keypoints:
+            x = int(keypoint.x * frame.shape[1])
+            y = int(keypoint.y * frame.shape[0])
+            cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
 
-        # Przerwanie pętli po naciśnięciu klawisza 'q'
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # Wyświetlenie przewidywanego labela
+        label = "good squat" if prediction > 0.5 else "bad squat"
+        cv2.putText(frame, label, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    # Zamknięcie kamery i zniszczenie okien
-    cap.release()
-    cv2.destroyAllWindows()
+    return frame
 
+# Uruchomienie kamery
+cap = cv2.VideoCapture(0)
 
-# Wywołanie funkcji do analizy obrazu z kamery
-analyze_camera_image()
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Analiza postury i klasyfikacja
+    processed_frame = analyze_posture_and_classify(frame)
+
+    # Wyświetlenie obrazu z kamerki
+    cv2.imshow('Squat Classifier', processed_frame)
+
+    # Wyjście z pętli po naciśnięciu klawisza 'q'
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Zwolnienie zasobów
+cap.release()
+cv2.destroyAllWindows()
